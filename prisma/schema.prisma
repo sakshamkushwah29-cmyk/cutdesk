@@ -1,0 +1,247 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Plan {
+  FREE
+  PRO
+  TEAM
+  ENTERPRISE
+}
+
+enum MemberRole {
+  OWNER
+  ADMIN
+  MEMBER
+}
+
+enum AssetStatus {
+  NEEDS_REVIEW
+  IN_PROGRESS
+  APPROVED
+}
+
+enum VersionState {
+  UPLOADING
+  READY
+  FAILED
+}
+
+enum MediaKind {
+  VIDEO
+  AUDIO
+  IMAGE
+  DOCUMENT
+  OTHER
+}
+
+enum CommentVisibility {
+  CLIENT
+  INTERNAL
+}
+
+enum ShareKind {
+  REVIEW
+  PRESENTATION
+}
+
+model User {
+  id           String            @id @default(uuid())
+  email        String            @unique
+  name         String
+  passwordHash String
+  createdAt    DateTime          @default(now())
+  memberships  WorkspaceMember[]
+  comments     Comment[]
+}
+
+model Workspace {
+  id                 String            @id @default(uuid())
+  name               String
+  slug               String            @unique
+  plan               Plan              @default(FREE)
+  storageBytes       BigInt            @default(0)
+  googleRefreshToken String?
+  googleAccessToken  String?
+  googleAccessExpiry DateTime?
+  googleEmail        String?
+  driveFolderId      String?
+  createdAt          DateTime          @default(now())
+  members            WorkspaceMember[]
+  projects           Project[]
+  shares             Share[]
+}
+
+model WorkspaceMember {
+  id          String          @id @default(uuid())
+  workspaceId String
+  userId      String
+  role        MemberRole
+  createdAt   DateTime        @default(now())
+  workspace   Workspace       @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  user        User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  projects    ProjectMember[]
+  assigned    Asset[]         @relation("Assignee")
+
+  @@unique([workspaceId, userId])
+}
+
+model Project {
+  id            String          @id @default(uuid())
+  workspaceId   String
+  name          String
+  restricted    Boolean         @default(false)
+  rootFolderId  String?         @unique
+  driveFolderId String?
+  createdById   String
+  createdAt     DateTime        @default(now())
+  workspace     Workspace       @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  rootFolder    Folder?         @relation("RootFolder", fields: [rootFolderId], references: [id])
+  folders       Folder[]        @relation("ProjectFolders")
+  assets        Asset[]
+  members       ProjectMember[]
+  shares        Share[]
+
+  @@index([workspaceId])
+}
+
+model ProjectMember {
+  projectId String
+  memberId  String
+  project   Project         @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  member    WorkspaceMember @relation(fields: [memberId], references: [id], onDelete: Cascade)
+
+  @@id([projectId, memberId])
+}
+
+model Folder {
+  id        String    @id @default(uuid())
+  projectId String
+  parentId  String?
+  name      String
+  createdAt DateTime  @default(now())
+  project   Project   @relation("ProjectFolders", fields: [projectId], references: [id], onDelete: Cascade)
+  parent    Folder?   @relation("FolderTree", fields: [parentId], references: [id], onDelete: Cascade)
+  children  Folder[]  @relation("FolderTree")
+  assets    Asset[]
+  rootOf    Project?  @relation("RootFolder")
+
+  @@index([projectId, parentId])
+}
+
+model Asset {
+  id               String           @id @default(uuid())
+  projectId        String
+  folderId         String
+  name             String
+  status           AssetStatus      @default(NEEDS_REVIEW)
+  assigneeId       String?
+  dueAt            DateTime?
+  currentVersionId String?          @unique
+  deletedAt        DateTime?
+  createdById      String
+  createdAt        DateTime         @default(now())
+  updatedAt        DateTime         @updatedAt
+  project          Project          @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  folder           Folder           @relation(fields: [folderId], references: [id], onDelete: Cascade)
+  assignee         WorkspaceMember? @relation("Assignee", fields: [assigneeId], references: [id], onDelete: SetNull)
+  currentVersion   AssetVersion?    @relation("CurrentVersion", fields: [currentVersionId], references: [id], onDelete: SetNull)
+  versions         AssetVersion[]   @relation("AssetVersions")
+  comments         Comment[]
+  shareItems       ShareItem[]
+
+  @@index([folderId])
+  @@index([projectId])
+}
+
+model AssetVersion {
+  id            String        @id @default(uuid())
+  assetId       String
+  versionNumber Int
+  state         VersionState  @default(UPLOADING)
+  mediaKind     MediaKind     @default(OTHER)
+  mimeType      String
+  byteSize      BigInt        @default(0)
+  driveFileId   String?
+  storageKey    String?
+  createdById   String
+  createdAt     DateTime      @default(now())
+  asset         Asset         @relation("AssetVersions", fields: [assetId], references: [id], onDelete: Cascade)
+  currentOf     Asset?        @relation("CurrentVersion")
+  comments      Comment[]
+  upload        UploadSession?
+
+  @@unique([assetId, versionNumber])
+}
+
+model UploadSession {
+  id         String       @id @default(uuid())
+  versionId  String       @unique
+  sessionUri String       @db.Text
+  byteSize   BigInt
+  createdAt  DateTime     @default(now())
+  expiresAt  DateTime
+  version    AssetVersion @relation(fields: [versionId], references: [id], onDelete: Cascade)
+}
+
+model Comment {
+  id           String             @id @default(uuid())
+  assetId      String
+  versionId    String
+  parentId     String?
+  authorUserId String?
+  guestName    String?
+  body         String
+  visibility   CommentVisibility  @default(CLIENT)
+  startMs      Int?
+  endMs        Int?
+  markup       Json               @default("[]")
+  resolvedAt   DateTime?
+  createdAt    DateTime           @default(now())
+  asset        Asset              @relation(fields: [assetId], references: [id], onDelete: Cascade)
+  version      AssetVersion       @relation(fields: [versionId], references: [id], onDelete: Cascade)
+  parent       Comment?           @relation("Thread", fields: [parentId], references: [id], onDelete: Cascade)
+  replies      Comment[]          @relation("Thread")
+  author       User?              @relation(fields: [authorUserId], references: [id], onDelete: SetNull)
+
+  @@index([assetId, createdAt])
+}
+
+model Share {
+  id                String    @id @default(uuid())
+  workspaceId       String
+  projectId         String
+  kind              ShareKind
+  name              String
+  tokenHash         String    @unique
+  tokenEnc          String
+  passphraseHash    String?
+  expiresAt         DateTime?
+  allowComment      Boolean   @default(true)
+  allowDownload     Boolean   @default(true)
+  showOlderVersions Boolean   @default(true)
+  branding          Json      @default("{}")
+  watermarkText     String?
+  createdById       String
+  createdAt         DateTime  @default(now())
+  workspace         Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  project           Project   @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  items             ShareItem[]
+
+  @@index([projectId])
+}
+
+model ShareItem {
+  shareId  String
+  assetId  String
+  position Int
+  share    Share @relation(fields: [shareId], references: [id], onDelete: Cascade)
+  asset    Asset @relation(fields: [assetId], references: [id], onDelete: Cascade)
+
+  @@id([shareId, assetId])
+}

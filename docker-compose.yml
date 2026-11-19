@@ -1,0 +1,20 @@
+# Database only. Upload bytes live in STORAGE_DIR on the machine running the Next.js app.
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: cutdesk
+      POSTGRES_PASSWORD: cutdesk
+      POSTGRES_DB: cutdesk
+    ports:
+      - "5432:5432"
+    volumes:
+      - cutdesk_pg:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U cutdesk -d cutdesk"]
+      interval: 2s
+      timeout: 5s
+      retries: 30
+
+volumes:
+  cutdesk_pg:
