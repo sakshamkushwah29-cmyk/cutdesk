@@ -10,11 +10,13 @@ export default clerkMiddleware(async (auth, request) => {
   const { userId } = await auth();
   if (!userId) {
     const url = new URL("/sign-in", request.url);
-    url.searchParams.set("redirect_url", "/api/auth/clerk");
+    const next = new URL("/auth/continue", request.url);
+    next.searchParams.set("next", request.nextUrl.pathname);
+    url.searchParams.set("redirect_url", `${next.pathname}${next.search}`);
     return NextResponse.redirect(url);
   }
   if (!request.cookies.get(SESSION_COOKIE)) {
-    const url = new URL("/api/auth/clerk", request.url);
+    const url = new URL("/auth/continue", request.url);
     url.searchParams.set("next", request.nextUrl.pathname);
     return NextResponse.redirect(url);
   }

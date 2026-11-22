@@ -1,6 +1,5 @@
-import { SignUp } from "@clerk/nextjs";
+import { ClerkLoaded, ClerkLoading, SignUp } from "@clerk/nextjs";
 import Link from "next/link";
-import { Suspense } from "react";
 
 export default function SignUpPage() {
   return (
@@ -10,14 +9,17 @@ export default function SignUpPage() {
           Cutdesk
         </Link>
         <h1>Open a bench</h1>
-        <p className="muted">Create your account with Google.</p>
-        <Suspense>
+        <p className="muted">Create your account with Google or Apple.</p>
+        <ClerkLoading>
+          <p className="muted">Loading Google and Apple…</p>
+        </ClerkLoading>
+        <ClerkLoaded>
           <SignUp
-            forceRedirectUrl="/api/auth/clerk"
-            fallbackRedirectUrl="/api/auth/clerk"
+            forceRedirectUrl="/auth/continue"
+            fallbackRedirectUrl="/auth/continue"
             signInUrl="/sign-in"
           />
-        </Suspense>
+        </ClerkLoaded>
       </div>
     </main>
   );

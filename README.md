@@ -43,7 +43,7 @@ Open http://localhost:3010.
 
 ## Sign in with Google
 
-Member sign-in and sign-up go through Clerk at `/sign-in` and `/sign-up`. Google is the social login. A new Google account gets a bench named after that person. Review links keep working with the share cookie and do not require Clerk.
+Member sign-in and sign-up use the Clerk Next.js SDK at `/sign-in` and `/sign-up`. Google and Apple are the one-step options, shown above the email form. A new account gets a bench named after that person. After Google or Apple returns, `/auth/continue` opens the bench. Review links keep working with the share cookie and do not require Clerk.
 
 The Clerk keys belong only in `.env`, which is gitignored. Pull them with:
 
@@ -51,7 +51,7 @@ The Clerk keys belong only in `.env`, which is gitignored. Pull them with:
 npx clerk env pull
 ```
 
-Development uses Clerk’s shared Google credentials, so localhost does not need your own Google client id. A public domain does. That Google client is separate from the optional Drive connection below.
+Development uses Clerk’s shared Google and Apple credentials, so localhost does not need your own client ids. A public domain does. Those clients are separate from the optional Drive connection below.
 
 Uploads work without Google Drive. A finished upload is marked ready and can be played from `/api/media/:versionId` and from a review link.
 
