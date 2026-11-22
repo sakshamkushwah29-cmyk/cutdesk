@@ -6,12 +6,12 @@ This version plays the original file through an authenticated range proxy. It do
 
 ## What you can do
 
-- Register a workspace and invite people who already have a Cutdesk account.
-- Create projects and folders, with restricted projects on Team.
+- Sign in with Google and open a bench. Invite people who already have a Cutdesk account.
+- Create projects and folders.
 - Upload a file in 256 KB chunks onto this server, then stack a new version on the same asset. A review link plays that file back.
 - Play the file, step one frame at a time (24 fps display step), and leave timecoded comments with pen or box marks.
 - Set workflow status to Needs Review, In Progress, or Approved.
-- Send a review link. Free links allow view, comment, and download. Pro adds a passphrase, expiry, branding, permissions, and an overlay watermark. Team adds internal comments.
+- Send a review link. Guests can view, comment, and download without an account.
 
 ## Run it
 
@@ -40,6 +40,18 @@ npm run dev
 ```
 
 Open http://localhost:3010.
+
+## Sign in with Google
+
+Member sign-in and sign-up go through Clerk at `/sign-in` and `/sign-up`. Google is the social login. A new Google account gets a bench named after that person. Review links keep working with the share cookie and do not require Clerk.
+
+The Clerk keys belong only in `.env`, which is gitignored. Pull them with:
+
+```bash
+npx clerk env pull
+```
+
+Development uses Clerk’s shared Google credentials, so localhost does not need your own Google client id. A public domain does. That Google client is separate from the optional Drive connection below.
 
 Uploads work without Google Drive. A finished upload is marked ready and can be played from `/api/media/:versionId` and from a review link.
 
@@ -77,4 +89,4 @@ Storage limits use decimal units (1 GB = 1,000,000,000 bytes). Uploads also stop
 
 ## Not in this version
 
-HLS or FFmpeg transcodes, mounted storage, camera ingest, a Premiere panel, speaker labels, SSO, multiple workspaces, forensic watermarking, and DRM.
+HLS or FFmpeg transcodes, mounted storage, camera ingest, a Premiere panel, speaker labels, SSO beyond Google sign-in, multiple workspaces, forensic watermarking, and DRM.

@@ -1,5 +1,6 @@
 "use client";
 
+import { useClerk } from "@clerk/nextjs";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { FormEvent, useEffect, useState } from "react";
@@ -51,6 +52,7 @@ function IconCloud() {
 function AppFrame({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const pathname = usePathname();
+  const clerk = useClerk();
   const uploads = useUploads();
   const [me, setMe] = useState<Me | null>(null);
   const [query, setQuery] = useState("");
@@ -58,7 +60,7 @@ function AppFrame({ children }: { children: React.ReactNode }) {
   const [pastLoaded, setPastLoaded] = useState(false);
 
   useEffect(() => {
-    apiSend<Me>("/api/auth/me").then(setMe).catch(() => router.push("/login"));
+    apiSend<Me>("/api/auth/me").then(setMe).catch(() => router.push("/sign-in"));
   }, [router]);
 
   useEffect(() => {
@@ -77,9 +79,11 @@ function AppFrame({ children }: { children: React.ReactNode }) {
   }
 
   async function logout() {
-    await apiSend("/api/auth/logout", { method: "POST" });
-    router.push("/");
-    router.refresh();
+    try {
+      await apiSend("/api/auth/logout", { method: "POST" });
+    } finally {
+      await clerk.signOut({ redirectUrl: "/" });
+    }
   }
 
   const homeOn = pathname === "/app";

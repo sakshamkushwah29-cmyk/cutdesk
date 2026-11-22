@@ -8,8 +8,8 @@ export default function HomePage() {
           Cutdesk
         </Link>
         <nav className="nav-links">
-          <Link href="/login">Sign in</Link>
-          <Link href="/register" className="btn">
+          <Link href="/sign-in">Sign in</Link>
+          <Link href="/sign-up" className="btn">
             Open a bench
           </Link>
         </nav>
@@ -23,10 +23,10 @@ export default function HomePage() {
             timecode, and the original is stored on this server for the review link to play.
           </p>
           <div className="row" style={{ marginTop: 22 }}>
-            <Link href="/register" className="btn">
+            <Link href="/sign-up" className="btn">
               Open a bench
             </Link>
-            <Link href="/login" className="btn-ghost">
+            <Link href="/sign-in" className="btn-ghost">
               I already have a bench
             </Link>
           </div>
