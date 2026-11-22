@@ -1,14 +1,14 @@
 import { AssetVersion, Workspace } from "@prisma/client";
 import { accessTokenFor, openDriveFile } from "./drive";
-import { streamLocalFile } from "./files";
+import { streamStoredFile } from "./files";
 import { HttpError } from "./http";
 
-export async function streamVersion(workspace: Workspace, version: AssetVersion, range: string | null) {
+export async function streamVersion(workspace: Workspace, version: AssetVersion, range: string | null, download = false) {
   if (version.state !== "READY") {
     throw new HttpError(404, "This file is not ready to play.");
   }
   if (version.storageKey) {
-    return streamLocalFile(version.storageKey, range, version.mimeType);
+    return streamStoredFile(version.storageKey, range, version.mimeType, download);
   }
   if (!version.driveFileId) {
     throw new HttpError(404, "This file is not ready to play.");

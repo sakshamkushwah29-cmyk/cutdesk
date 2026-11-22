@@ -37,6 +37,9 @@ export const PUT = api(async (req, ctx) => {
   const chunk = Buffer.from(await req.arrayBuffer());
   if (chunk.length !== length) throw new HttpError(400, "Chunk length does not match Content-Range.");
 
+  if (upload.sessionUri === "blob") {
+    throw new HttpError(400, "This upload is sent directly to cloud storage.");
+  }
   let driveFileId: string | undefined;
   if (upload.sessionUri === LOCAL_UPLOAD) {
     if (!upload.version.storageKey) throw new HttpError(500, "This upload has no file on disk.");

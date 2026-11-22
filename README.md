@@ -1,6 +1,6 @@
 # Cutdesk
 
-Cutdesk is a review bench for video, audio, stills, and documents. New uploads are stored on the machine running the app, in `STORAGE_DIR` (default `./storage`). PostgreSQL, run by Docker, stores projects, versions, comments, and share links. It does not store the video bytes.
+Cutdesk is a review bench for video, audio, stills, and documents. On this machine, new uploads are stored in `STORAGE_DIR` (default `./storage`). On Vercel they go to a private Blob store, because the server disk is read-only. PostgreSQL stores projects, versions, comments, and share links. It does not store the video bytes.
 
 This version plays the original file through an authenticated range proxy. It does not transcode, burn in a watermark, or apply DRM. The watermark on a share link is an on-screen overlay.
 

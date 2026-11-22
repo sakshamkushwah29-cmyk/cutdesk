@@ -12,8 +12,9 @@ export const GET = api(async (req, ctx) => {
   const version = await prisma.assetVersion.findUnique({ where: { id: versionId }, include: { asset: true } });
   if (!version || version.asset.deletedAt) throw new HttpError(404, "File not found.");
   await loadProject(member, version.asset.projectId);
-  const upstream = await streamVersion(member.workspace, version, req.headers.get("range"));
-  if (new URL(req.url).searchParams.get("download") !== "1") return upstream;
+  const download = new URL(req.url).searchParams.get("download") === "1";
+  const upstream = await streamVersion(member.workspace, version, req.headers.get("range"), download);
+  if (!download || (upstream.status >= 300 && upstream.status < 400)) return upstream;
   const headers = new Headers(upstream.headers);
   headers.set("content-disposition", `attachment; filename="${safeName(version.asset.name)}"`);
   return new Response(upstream.body, { status: upstream.status, headers });

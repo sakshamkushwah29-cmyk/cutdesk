@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { loadProject, requireMember } from "@/lib/authz";
 import { prisma } from "@/lib/db";
-import { allocateLocalFile, assertDiskFits, isNoSpace, LOCAL_UPLOAD, removeLocalFile, storageKeyFor } from "@/lib/files";
+import { allocateLocalFile, assertDiskFits, isNoSpace, LOCAL_UPLOAD, removeLocalFile, storageKeyFor, usesCloudStorage } from "@/lib/files";
 import { api, HttpError, json, readJson } from "@/lib/http";
 import { safeName } from "@/lib/crypto";
 import { kindFromMime } from "@/lib/time";
@@ -80,7 +80,8 @@ export const POST = api(async (req) => {
   }
 
   await prisma.project.findUniqueOrThrow({ where: { id: projectId } });
-  await assertDiskFits(byteSize);
+  const cloud = usesCloudStorage();
+  if (!cloud) await assertDiskFits(byteSize);
   const filename = safeName(body.filename);
   const versionId = crypto.randomUUID();
   const key = storageKeyFor(member.workspaceId, versionId);
@@ -116,7 +117,7 @@ export const POST = api(async (req) => {
     const upload = await tx.uploadSession.create({
       data: {
         versionId: version.id,
-        sessionUri: LOCAL_UPLOAD,
+        sessionUri: cloud ? "blob" : LOCAL_UPLOAD,
         byteSize,
         expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000),
       },
@@ -125,7 +126,7 @@ export const POST = api(async (req) => {
   });
 
   try {
-    await allocateLocalFile(key);
+    if (!cloud) await allocateLocalFile(key);
   } catch (error) {
     await prisma.assetVersion.delete({ where: { id: created.version.id } }).catch(() => undefined);
     if (created.isNewAsset) await prisma.asset.delete({ where: { id: created.asset.id } }).catch(() => undefined);
@@ -141,5 +142,7 @@ export const POST = api(async (req) => {
     assetId: created.asset.id,
     versionId: created.version.id,
     versionNumber: created.version.versionNumber,
+    mode: cloud ? "blob" : "local",
+    pathname: key,
   }, 201);
 });

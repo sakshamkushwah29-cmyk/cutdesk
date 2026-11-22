@@ -21,19 +21,40 @@ export async function uploadFile(
   target: { folderId?: string; assetId?: string },
   onProgress?: (ratio: number) => void,
 ) {
-  const started = await apiSend<{ uploadId: string; assetId: string; versionId: string; versionNumber: number }>(
-    "/api/uploads",
-    {
+  const started = await apiSend<{
+    uploadId: string;
+    assetId: string;
+    versionId: string;
+    versionNumber: number;
+    mode?: "blob" | "local";
+    pathname?: string;
+  }>("/api/uploads", {
+    method: "POST",
+    body: JSON.stringify({
+      folderId: target.folderId,
+      assetId: target.assetId,
+      filename: file.name,
+      byteSize: file.size,
+      contentType: file.type || "application/octet-stream",
+    }),
+  });
+  if (started.mode === "blob" && started.pathname) {
+    const { upload } = await import("@vercel/blob/client");
+    const blob = await upload(started.pathname, file, {
+      access: "private",
+      handleUploadUrl: "/api/uploads/blob",
+      clientPayload: started.uploadId,
+      contentType: file.type || "application/octet-stream",
+      multipart: file.size > 8 * 1024 * 1024,
+      onUploadProgress: ({ loaded, total }) => onProgress?.(total ? loaded / total : 1),
+    });
+    await apiSend(`/api/uploads/${started.uploadId}/complete`, {
       method: "POST",
-      body: JSON.stringify({
-        folderId: target.folderId,
-        assetId: target.assetId,
-        filename: file.name,
-        byteSize: file.size,
-        contentType: file.type || "application/octet-stream",
-      }),
-    },
-  );
+      body: JSON.stringify({ url: blob.url }),
+    });
+    onProgress?.(1);
+    return started;
+  }
   let offset = 0;
   while (offset < file.size) {
     const end = Math.min(offset + CHUNK, file.size);

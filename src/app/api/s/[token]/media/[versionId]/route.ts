@@ -19,8 +19,8 @@ export const GET = api(async (req, ctx) => {
   }
   const download = new URL(req.url).searchParams.get("download") === "1";
   if (download && !share.allowDownload) throw new HttpError(403, "Downloads are turned off for this link.");
-  const upstream = await streamVersion(share.workspace, version, req.headers.get("range"));
-  if (!download) return upstream;
+  const upstream = await streamVersion(share.workspace, version, req.headers.get("range"), download);
+  if (!download || (upstream.status >= 300 && upstream.status < 400)) return upstream;
   const headers = new Headers(upstream.headers);
   headers.set("content-disposition", `attachment; filename="${safeName(item.asset.name)}"`);
   return new Response(upstream.body, { status: upstream.status, headers });

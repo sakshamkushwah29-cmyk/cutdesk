@@ -33,13 +33,30 @@ export function resolveStorageKey(key: string) {
   return full;
 }
 
+export function usesCloudStorage() {
+  return process.env.VERCEL === "1" && Boolean(process.env.BLOB_READ_WRITE_TOKEN);
+}
+
 export function isNoSpace(error: unknown) {
   return typeof error === "object" && error !== null && "code" in error && (error as { code?: unknown }).code === "ENOSPC";
 }
 
+function isReadOnlyDisk(error: unknown) {
+  if (typeof error !== "object" || error === null || !("code" in error)) return false;
+  const code = (error as { code?: unknown }).code;
+  return code === "EROFS" || code === "EPERM" || code === "EACCES" || code === "ENOENT";
+}
+
 export async function diskFreeBytes() {
   const root = storageRoot();
-  await mkdir(root, { recursive: true });
+  try {
+    await mkdir(root, { recursive: true });
+  } catch (error) {
+    if (isReadOnlyDisk(error)) {
+      throw new HttpError(507, "This host cannot store uploaded files on its own disk.", "DISK_FULL");
+    }
+    throw error;
+  }
   const stats = await statfs(root);
   return BigInt(stats.bavail) * BigInt(stats.bsize);
 }
@@ -86,6 +103,15 @@ export async function writeLocalChunk(key: string, start: number, chunk: Buffer)
 
 export async function removeLocalFile(key: string | null | undefined) {
   if (!key) return;
+  if (key.startsWith("https://") || usesCloudStorage()) {
+    try {
+      const { del } = await import("@vercel/blob");
+      await del(key);
+    } catch (error) {
+      console.error("Could not remove a stored file", error);
+    }
+    return;
+  }
   try {
     await rm(resolveStorageKey(key), { force: true });
   } catch (error) {
@@ -161,4 +187,48 @@ export async function streamLocalFile(key: string, rangeHeader: string | null, m
     return new Response(body, { status: 206, headers });
   }
   return new Response(body, { status: 200, headers });
+}
+
+export function blobPathname(key: string) {
+  let pathname = key;
+  if (key.startsWith("https://")) {
+    pathname = new URL(key).pathname;
+  }
+  pathname = decodeURIComponent(pathname).replace(/^\/+/, "");
+  if (!pathname || pathname.includes("..")) throw new HttpError(400, "Storage key is not valid.");
+  return pathname;
+}
+
+export async function streamStoredFile(key: string, rangeHeader: string | null, mimeType: string, download = false) {
+  if (!key.startsWith("https://")) return streamLocalFile(key, rangeHeader, mimeType);
+  const { issueSignedToken, presignUrl } = await import("@vercel/blob");
+  const pathname = blobPathname(key);
+  const validUntil = Date.now() + 60 * 60 * 1000;
+  let presignedUrl: string;
+  try {
+    const signed = await issueSignedToken({
+      pathname,
+      operations: ["get", "head"],
+      validUntil,
+    });
+    const signedUrl = await presignUrl(signed, {
+      access: "private",
+      operation: "get",
+      pathname,
+      validUntil,
+    });
+    presignedUrl = signedUrl.presignedUrl;
+  } catch (error) {
+    console.error("Could not open a stored file", error instanceof Error ? error.message : "unknown");
+    throw new HttpError(502, "Could not open the stored file.");
+  }
+  const target = new URL(presignedUrl);
+  if (download) target.searchParams.set("download", "1");
+  return new Response(null, {
+    status: 302,
+    headers: {
+      location: target.toString(),
+      "cache-control": "private, no-store",
+    },
+  });
 }
