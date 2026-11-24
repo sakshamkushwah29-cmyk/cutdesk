@@ -268,11 +268,6 @@ export function Player(props: Props) {
     const media = mediaRef.current;
     if (!media || !timedMedia) return true;
     media.pause();
-    if (draft.length > 0 && draftAt != null && Math.abs(media.currentTime * 1000 - draftAt) > HOLD) {
-      media.currentTime = draftAt / 1000;
-      setNow(draftAt);
-      return false;
-    }
     if (!draft.length) {
       const ms = Math.round(media.currentTime * 1000);
       setDraftAt(ms);
@@ -295,6 +290,7 @@ export function Player(props: Props) {
     const origin = point(event);
     if (tool === "point") {
       pushMark({ type: "point", color, x: origin.x, y: origin.y });
+      setTool("play");
       return;
     }
     const mark: Mark =
@@ -330,13 +326,16 @@ export function Player(props: Props) {
     }
     if (mark.type === "pen" && mark.points.length < 2) {
       setDraft((current) => current.filter((item) => item !== mark));
+      setTool("play");
       return;
     }
     if (mark.type === "rect" && mark.w < 0.004 && mark.h < 0.004) {
       setDraft((current) => current.filter((item) => item !== mark));
+      setTool("play");
       return;
     }
     setDraft((current) => [...current]);
+    setTool("play");
   }
 
   function undo() {
